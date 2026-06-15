@@ -1,41 +1,174 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ScrollView, Dimensions, StatusBar,
+  ScrollView, Dimensions, StatusBar, ActivityIndicator, Image,
 } from 'react-native';
-import { router } from 'expo-router';
-import { Colors, FontSize, BorderRadius } from '@/constants/theme';
-import { PRODUCTS, CATEGORIES } from '@/constants/data';
-import ProductCard from '@/components/ProductCard';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Colors, FontSize, BorderRadius, Shadow } from '@/constants/theme';
+import { CATEGORIES } from '@/constants/data';
+import { productsApi, ProductDetail } from '@/services/api';
+import { useCart } from '@/context/CartContext';
+
+function ProductApiCard({ product: p, layout }: { product: ProductDetail; layout: 'grid' | 'list' }) {
+  const { addItem, getItemQuantity, increment, decrement } = useCart();
+  const qty = getItemQuantity(p._id);
+  const img = p.images?.[0] ?? p.image;
+
+  const cartItem = { id: p._id, name: p.name, price: p.price ?? 0, image: img, category: p.category };
+
+  if (layout === 'list') {
+    return (
+      <TouchableOpacity
+        style={cardStyles.listCard}
+        onPress={() => router.push({ pathname: '/product-detail', params: { id: p._id } })}
+        activeOpacity={0.9}
+      >
+        {img ? (
+          <Image source={{ uri: img }} style={cardStyles.listImg} />
+        ) : (
+          <View style={[cardStyles.listImg, cardStyles.imgPlaceholder]}>
+            <Ionicons name="leaf-outline" size={28} color={Colors.primary} />
+          </View>
+        )}
+        <View style={cardStyles.listInfo}>
+          {p.badge && <Text style={cardStyles.badge}>{p.badge}</Text>}
+          <Text style={cardStyles.listName} numberOfLines={2}>{p.name}</Text>
+          {p.farmerName && <Text style={cardStyles.listFarmer}>by {p.farmerName}</Text>}
+          <View style={cardStyles.listBottom}>
+            <View>
+              <Text style={cardStyles.price}>₹{p.price}</Text>
+              {p.mrp && p.mrp > (p.price ?? 0) && <Text style={cardStyles.mrp}>₹{p.mrp}</Text>}
+            </View>
+            <QtyControl id={p._id} qty={qty} onAdd={() => addItem(cartItem)} onInc={() => increment(p._id)} onDec={() => decrement(p._id)} />
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={cardStyles.gridCard}
+      onPress={() => router.push({ pathname: '/product-detail', params: { id: p._id } })}
+      activeOpacity={0.9}
+    >
+      {img ? (
+        <Image source={{ uri: img }} style={cardStyles.gridImg} />
+      ) : (
+        <View style={[cardStyles.gridImg, cardStyles.imgPlaceholder]}>
+          <Ionicons name="leaf-outline" size={28} color={Colors.primary} />
+        </View>
+      )}
+      {p.isOrganic && <View style={cardStyles.organicDot}><Ionicons name="leaf" size={10} color={Colors.primary} /></View>}
+      <View style={cardStyles.gridInfo}>
+        {p.badge && <Text style={cardStyles.badge} numberOfLines={1}>{p.badge}</Text>}
+        <Text style={cardStyles.gridName} numberOfLines={2}>{p.name}</Text>
+        <View style={cardStyles.gridBottom}>
+          <Text style={cardStyles.price}>₹{p.price}</Text>
+          <QtyControl id={p._id} qty={qty} onAdd={() => addItem(cartItem)} onInc={() => increment(p._id)} onDec={() => decrement(p._id)} />
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function QtyControl({ id, qty, onAdd, onInc, onDec }: { id: string; qty: number; onAdd: () => void; onInc: () => void; onDec: () => void }) {
+  if (qty === 0) {
+    return (
+      <TouchableOpacity style={cardStyles.addBtn} onPress={onAdd} activeOpacity={0.85}>
+        <Ionicons name="add" size={16} color={Colors.primaryForeground} />
+      </TouchableOpacity>
+    );
+  }
+  return (
+    <View style={cardStyles.qtyRow}>
+      <TouchableOpacity style={cardStyles.qtyBtn} onPress={onDec}><Text style={cardStyles.qtyBtnTxt}>−</Text></TouchableOpacity>
+      <Text style={cardStyles.qtyTxt}>{qty}</Text>
+      <TouchableOpacity style={cardStyles.qtyBtn} onPress={onInc}><Text style={cardStyles.qtyBtnTxt}>+</Text></TouchableOpacity>
+    </View>
+  );
+}
+
+const cardStyles = StyleSheet.create({
+  gridCard: { width: '48%', margin: '1%', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.sm },
+  gridImg: { width: '100%', height: 120, resizeMode: 'cover' },
+  imgPlaceholder: { backgroundColor: Colors.primaryMuted, alignItems: 'center', justifyContent: 'center' },
+  organicDot: { position: 'absolute', top: 8, right: 8, backgroundColor: Colors.primaryMuted, borderRadius: 10, padding: 3, borderWidth: 1, borderColor: Colors.border },
+  gridInfo: { padding: 8, gap: 4 },
+  gridName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.foregroundHeading },
+  gridBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  listCard: { flexDirection: 'row', backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.lg, marginBottom: 10, marginHorizontal: 10, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border, ...Shadow.sm },
+  listImg: { width: 110, height: 110, resizeMode: 'cover' },
+  listInfo: { flex: 1, padding: 10, justifyContent: 'space-between' },
+  listName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.foregroundHeading },
+  listFarmer: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },
+  listBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  badge: { fontSize: 10, color: Colors.primary, fontWeight: '700', backgroundColor: Colors.primaryMuted, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start' },
+  price: { fontSize: FontSize.md, fontWeight: '900', color: Colors.foregroundHeading },
+  mrp: { fontSize: FontSize.xs, color: Colors.foregroundMuted, textDecorationLine: 'line-through' },
+  addBtn: { backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, borderRadius: BorderRadius.sm, overflow: 'hidden' },
+  qtyBtn: { paddingHorizontal: 6, paddingVertical: 3 },
+  qtyBtnTxt: { color: Colors.white, fontSize: FontSize.md, fontWeight: '800' },
+  qtyTxt: { color: Colors.white, fontSize: FontSize.sm, fontWeight: '800', minWidth: 18, textAlign: 'center' },
+});
 
 const { width } = Dimensions.get('window');
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const SORT_OPTIONS = ['Relevance', 'Price: Low to High', 'Price: High to Low', 'Rating'];
-const FILTERS = ['Under ₹100', 'Under ₹200', 'Veg Only', 'Best Rated', 'On Sale'];
+const FILTERS = ['Under ₹100', 'Under ₹200', 'Organic Only', 'Best Rated'];
+const CATEGORY_ICONS: Record<string, IoniconName> = {
+  Groceries: 'basket-outline',
+  Fruits: 'nutrition-outline',
+  Vegetables: 'leaf-outline',
+  Dairy: 'water-outline',
+  Grains: 'grid-outline',
+  Spices: 'flame-outline',
+};
 
 export default function ProductListingScreen() {
+  const { category: initCategory } = useLocalSearchParams<{ category?: string }>();
   const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [sort, setSort] = useState('Relevance');
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
-  const [category, setCategory] = useState<string | null>(null);
+  const [category, setCategory] = useState<string | null>(initCategory ?? null);
   const [showSort, setShowSort] = useState(false);
+  const [allProducts, setAllProducts] = useState<ProductDetail[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const toggleFilter = (f: string) =>
     setActiveFilters(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await productsApi.list({ category: category ?? undefined, limit: 50 });
+        if (!cancelled) setAllProducts(res.data.products ?? []);
+      } catch {
+        if (!cancelled) setAllProducts([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [category]);
+
   const products = useMemo(() => {
-    let p = [...PRODUCTS];
-    if (category) p = p.filter(x => x.category === category);
-    if (activeFilters.includes('Veg Only')) p = p.filter(x => x.isVeg);
-    if (activeFilters.includes('Under ₹100')) p = p.filter(x => x.price < 100);
-    if (activeFilters.includes('Under ₹200')) p = p.filter(x => x.price < 200);
-    if (activeFilters.includes('Best Rated')) p = p.filter(x => x.rating >= 4.6);
-    if (activeFilters.includes('On Sale')) p = p.filter(x => x.discount);
-    if (sort === 'Price: Low to High') p.sort((a, b) => a.price - b.price);
-    if (sort === 'Price: High to Low') p.sort((a, b) => b.price - a.price);
-    if (sort === 'Rating') p.sort((a, b) => b.rating - a.rating);
+    let p = [...allProducts];
+    if (activeFilters.includes('Organic Only')) p = p.filter(x => x.isOrganic);
+    if (activeFilters.includes('Under ₹100')) p = p.filter(x => (x.price ?? 0) < 100);
+    if (activeFilters.includes('Under ₹200')) p = p.filter(x => (x.price ?? 0) < 200);
+    if (activeFilters.includes('Best Rated')) p = p.filter(x => (x.rating ?? 0) >= 4.5);
+    if (sort === 'Price: Low to High') p.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+    if (sort === 'Price: High to Low') p.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
+    if (sort === 'Rating') p.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
     return p;
-  }, [category, activeFilters, sort]);
+  }, [allProducts, activeFilters, sort]);
 
   return (
     <View style={styles.container}>
@@ -54,9 +187,11 @@ export default function ProductListingScreen() {
               style={[styles.toggleBtn, layout === l && styles.toggleBtnActive]}
               onPress={() => setLayout(l)}
             >
-              <Text style={[styles.toggleIcon, layout === l && styles.toggleIconActive]}>
-                {l === 'grid' ? '⊞' : '☰'}
-              </Text>
+              <Ionicons
+                name={l === 'grid' ? 'grid-outline' : 'list-outline'}
+                size={18}
+                color={layout === l ? Colors.primary : Colors.gray400}
+              />
             </TouchableOpacity>
           ))}
         </View>
@@ -65,7 +200,7 @@ export default function ProductListingScreen() {
       {/* Sort + Filters */}
       <View style={styles.controlRow}>
         <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSort(true)}>
-          <Text style={styles.sortIcon}>↕</Text>
+          <Ionicons name="swap-vertical-outline" size={14} color={Colors.primary} />
           <Text style={styles.sortTxt}>{sort}</Text>
         </TouchableOpacity>
         <View style={styles.divider} />
@@ -101,7 +236,11 @@ export default function ProductListingScreen() {
             style={[styles.catChip, category === c.name && styles.catChipActive]}
             onPress={() => setCategory(category === c.name ? null : c.name)}
           >
-            <Text style={styles.catEmoji}>{c.icon}</Text>
+            <Ionicons
+              name={CATEGORY_ICONS[c.name] ?? 'leaf-outline'}
+              size={13}
+              color={category === c.name ? Colors.white : Colors.primary}
+            />
             <Text style={[styles.catTxt, category === c.name && styles.catTxtActive]}>{c.name}</Text>
           </TouchableOpacity>
         ))}
@@ -116,28 +255,26 @@ export default function ProductListingScreen() {
         )}
       </View>
 
-      <FlatList
-        data={products}
-        key={layout}
-        numColumns={layout === 'grid' ? 2 : 1}
-        keyExtractor={(i) => i.id}
-        contentContainerStyle={layout === 'grid' ? styles.gridPad : styles.listPad}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <ProductCard
-            product={item}
-            layout={layout}
-            onPress={() => router.push({ pathname: '/product-detail', params: { id: item.id } })}
-          />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🔍</Text>
-            <Text style={styles.emptyTitle}>No products found</Text>
-            <Text style={styles.emptySub}>Try removing some filters</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <ActivityIndicator color={Colors.primary} style={{ marginTop: 60 }} size="large" />
+      ) : (
+        <FlatList
+          data={products}
+          key={layout}
+          numColumns={layout === 'grid' ? 2 : 1}
+          keyExtractor={(i) => i._id}
+          contentContainerStyle={layout === 'grid' ? styles.gridPad : styles.listPad}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => <ProductApiCard product={item} layout={layout} />}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Ionicons name="search-outline" size={56} color={Colors.gray400} />
+              <Text style={styles.emptyTitle}>No products found</Text>
+              <Text style={styles.emptySub}>Try removing some filters</Text>
+            </View>
+          }
+        />
+      )}
 
       {/* Sort Sheet */}
       {showSort && (
@@ -182,8 +319,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.gray100,
   },
   toggleBtnActive: { backgroundColor: Colors.primaryMuted },
-  toggleIcon: { fontSize: 18, color: Colors.gray400 },
-  toggleIconActive: { color: Colors.primary },
 
   controlRow: {
     flexDirection: 'row', alignItems: 'center',
@@ -192,7 +327,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: Colors.gray100, gap: 10,
   },
   sortBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  sortIcon: { fontSize: 14, color: Colors.primary },
   sortTxt: { fontSize: FontSize.sm, fontWeight: '600', color: Colors.gray700 },
   divider: { width: 1, height: 24, backgroundColor: Colors.gray200 },
   filterChip: {
@@ -213,7 +347,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.gray200,
   },
   catChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  catEmoji: { fontSize: 13 },
   catTxt: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.gray600 },
   catTxtActive: { color: Colors.white },
 
@@ -228,7 +361,6 @@ const styles = StyleSheet.create({
   listPad: { paddingBottom: 100 },
 
   empty: { alignItems: 'center', paddingTop: 80 },
-  emptyEmoji: { fontSize: 60, marginBottom: 16 },
   emptyTitle: { fontSize: FontSize.xl, fontWeight: '800', color: Colors.gray700 },
   emptySub: { fontSize: FontSize.md, color: Colors.gray400, marginTop: 8 },
 

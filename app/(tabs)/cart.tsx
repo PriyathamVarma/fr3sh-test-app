@@ -3,10 +3,10 @@ import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, Image, Animated, Alert, StatusBar,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Colors, FontSize, BorderRadius, Shadow } from '@/constants/theme';
-import { useCart } from '@/context/CartContext';
-import { CartItem } from '@/constants/data';
+import { useCart, CartItem } from '@/context/CartContext';
 
 function CartItemRow({ item }: { item: CartItem }) {
   const { increment, decrement, removeItem } = useCart();
@@ -18,7 +18,13 @@ function CartItemRow({ item }: { item: CartItem }) {
 
   return (
     <Animated.View style={[styles.itemCard, { transform: [{ translateX: slideAnim }] }]}>
-      <Image source={{ uri: item.image }} style={styles.itemImg} />
+      {item.image ? (
+        <Image source={{ uri: item.image }} style={styles.itemImg} />
+      ) : (
+        <View style={[styles.itemImg, styles.itemImgPlaceholder]}>
+          <Ionicons name="leaf-outline" size={26} color={Colors.primary} />
+        </View>
+      )}
       <View style={styles.itemInfo}>
         <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
         <Text style={styles.itemCat}>{item.category}</Text>
@@ -55,11 +61,7 @@ export default function CartScreen() {
   const grandTotal = totalPrice + deliveryFee + platformFee;
 
   const handleCheckout = () => {
-    Alert.alert(
-      '🎉 Order Placed!',
-      `Your order of ₹${grandTotal} is confirmed!\nEstimated delivery: 10–15 mins.`,
-      [{ text: 'Track Order', onPress: () => { clearCart(); router.push('/(tabs)'); } }]
-    );
+    router.push('/checkout');
   };
 
   if (items.length === 0) {
@@ -68,7 +70,7 @@ export default function CartScreen() {
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}><Text style={styles.headerTitle}>My Cart</Text></View>
         <View style={styles.empty}>
-          <Text style={styles.emptyEmoji}>🛒</Text>
+          <Ionicons name="cart-outline" size={78} color={Colors.gray400} style={{ marginBottom: 20 }} />
           <Text style={styles.emptyTitle}>Your cart is empty</Text>
           <Text style={styles.emptySub}>Add items to get started</Text>
           <TouchableOpacity style={styles.shopBtn} onPress={() => router.push('/(tabs)')}>
@@ -95,16 +97,22 @@ export default function CartScreen() {
       {/* Delivery Progress */}
       {deliveryFee > 0 ? (
         <View style={styles.deliveryNotice}>
-          <Text style={styles.deliveryNoticeTxt}>
-            🚀 Add <Text style={{ fontWeight: '900' }}>₹{499 - totalPrice}</Text> more for free delivery!
-          </Text>
+          <View style={styles.deliveryNoticeRow}>
+            <Ionicons name="rocket-outline" size={16} color={Colors.primary} />
+            <Text style={styles.deliveryNoticeTxt}>
+              Add <Text style={{ fontWeight: '900' }}>₹{499 - totalPrice}</Text> more for free delivery!
+            </Text>
+          </View>
           <View style={styles.progressBg}>
             <View style={[styles.progressFill, { width: `${Math.min((totalPrice / 499) * 100, 100)}%` }]} />
           </View>
         </View>
       ) : (
-        <View style={[styles.deliveryNotice, { backgroundColor: '#E8FFF1' }]}>
-          <Text style={[styles.deliveryNoticeTxt, { color: Colors.success }]}>🎉 You've unlocked <Text style={{ fontWeight: '800' }}>FREE delivery!</Text></Text>
+        <View style={[styles.deliveryNotice, { backgroundColor: Colors.statusSuccessSurface }]}>
+          <View style={styles.deliveryNoticeRow}>
+            <Ionicons name="checkmark-circle-outline" size={16} color={Colors.statusSuccess} />
+            <Text style={[styles.deliveryNoticeTxt, { color: Colors.statusSuccess }]}>You've unlocked <Text style={{ fontWeight: '800' }}>FREE delivery!</Text></Text>
+          </View>
         </View>
       )}
 
@@ -118,7 +126,7 @@ export default function CartScreen() {
           <View>
             {savings > 0 && (
               <View style={styles.savingsBanner}>
-                <Text style={styles.savingsEmoji}>💰</Text>
+                <Ionicons name="wallet-outline" size={20} color={Colors.success} />
                 <Text style={styles.savingsTxt}>
                   You're saving <Text style={styles.savingsAmt}>₹{savings}</Text> on this order!
                 </Text>
@@ -134,7 +142,8 @@ export default function CartScreen() {
               <BillRow label="Grand Total" value={`₹${grandTotal}`} bold />
             </View>
             <View style={styles.safetyRow}>
-              <Text>🛡  Safe & contactless delivery guaranteed</Text>
+              <Ionicons name="shield-checkmark-outline" size={16} color={Colors.primary} />
+              <Text style={styles.safetyText}>Safe & contactless delivery guaranteed</Text>
             </View>
             <View style={{ height: 160 }} />
           </View>
@@ -191,6 +200,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryMuted,
     paddingHorizontal: 16, paddingVertical: 10, gap: 6,
   },
+  deliveryNoticeRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   deliveryNoticeTxt: { fontSize: FontSize.sm, color: Colors.primary, fontWeight: '600' },
   progressBg: { height: 4, backgroundColor: Colors.gray200, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
@@ -201,6 +211,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', overflow: 'hidden', ...Shadow.sm,
   },
   itemImg: { width: 100, height: 100, resizeMode: 'cover' },
+  itemImgPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.primaryMuted },
   itemInfo: { flex: 1, padding: 10 },
   itemName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray800 },
   itemCat: { fontSize: FontSize.xs, color: Colors.gray400, marginTop: 2 },
@@ -232,7 +243,6 @@ const styles = StyleSheet.create({
     padding: 12, marginBottom: 12,
     borderWidth: 1, borderColor: '#BBF7D0',
   },
-  savingsEmoji: { fontSize: 20 },
   savingsTxt: { fontSize: FontSize.sm, color: Colors.gray700, flex: 1 },
   savingsAmt: { color: Colors.success, fontWeight: '800' },
 
@@ -256,7 +266,8 @@ const styles = StyleSheet.create({
   },
   freeTxt: { fontSize: 10, color: Colors.success, fontWeight: '800' },
 
-  safetyRow: { alignItems: 'center', paddingVertical: 8 },
+  safetyRow: { flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+  safetyText: { fontSize: FontSize.sm, color: Colors.gray600 },
 
   checkoutBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
@@ -275,7 +286,6 @@ const styles = StyleSheet.create({
   checkoutBtnTxt: { color: Colors.white, fontWeight: '800', fontSize: FontSize.md },
 
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  emptyEmoji: { fontSize: 80, marginBottom: 20 },
   emptyTitle: { fontSize: FontSize.xxl, fontWeight: '900', color: Colors.gray800 },
   emptySub: { fontSize: FontSize.md, color: Colors.gray400, marginTop: 8, marginBottom: 32 },
   shopBtn: {

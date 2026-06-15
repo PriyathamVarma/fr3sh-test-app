@@ -3,29 +3,31 @@ import {
   View, Text, StyleSheet, FlatList,
   TouchableOpacity, Dimensions, Animated, StatusBar,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Colors, FontSize, BorderRadius } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const SLIDES = [
   {
-    id: '1', emoji: '🥦',
+    id: '1', icon: 'leaf-outline' as IoniconName,
     title: 'Freshness\nGuaranteed',
     subtitle: 'Farm-to-door produce, handpicked daily. No middlemen — just pure freshness straight to your table.',
-    bg: '#FFF5EC', accent: Colors.primary, emojiBg: '#FFE4CC',
+    bg: '#FFF5EC', accent: Colors.primary, iconBg: '#FFE4CC',
   },
   {
-    id: '2', emoji: '⚡',
+    id: '2', icon: 'flash-outline' as IoniconName,
     title: 'Delivered in\n10 Minutes',
     subtitle: 'Our dark stores are minutes away. Order now and watch your groceries arrive before your coffee brews.',
-    bg: '#FFFBEC', accent: '#F59E0B', emojiBg: '#FEF3C7',
+    bg: '#FFFBEC', accent: '#F59E0B', iconBg: '#FEF3C7',
   },
   {
-    id: '3', emoji: '💚',
+    id: '3', icon: 'heart-outline' as IoniconName,
     title: 'Eat Better,\nLive Better',
     subtitle: 'Curated healthy options, organic produce, and transparent sourcing — because you deserve the best.',
-    bg: '#F0FFF4', accent: '#22C55E', emojiBg: '#DCFCE7',
+    bg: '#F0FFF4', accent: '#22C55E', iconBg: '#DCFCE7',
   },
 ];
 
@@ -65,8 +67,8 @@ export default function OnboardingScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={[styles.slide, { backgroundColor: item.bg }]}>
-            <View style={[styles.illustrationContainer, { backgroundColor: item.emojiBg }]}>
-              <Text style={styles.emoji}>{item.emoji}</Text>
+            <View style={[styles.illustrationContainer, { backgroundColor: item.iconBg }]}>
+              <Ionicons name={item.icon} size={92} color={item.accent} />
               <View style={[styles.accentRing, { borderColor: item.accent + '33' }]} />
               <View style={[styles.accentRingOuter, { borderColor: item.accent + '15' }]} />
             </View>
@@ -109,7 +111,7 @@ export default function OnboardingScreen() {
           activeOpacity={0.85}
         >
           <Text style={styles.ctaBtnText}>
-            {activeIndex === SLIDES.length - 1 ? 'Get Started 🚀' : 'Continue'}
+            {activeIndex === SLIDES.length - 1 ? 'Get Started' : 'Continue'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -135,7 +137,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 48, position: 'relative',
   },
-  emoji: { fontSize: 90 },
   accentRing: {
     position: 'absolute', width: 240, height: 240, borderRadius: 120, borderWidth: 2,
   },

@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors, BorderRadius, FontSize, Shadow } from '@/constants/theme';
 import { Product } from '@/constants/data';
 import { useCart } from '@/context/CartContext';
@@ -25,11 +26,12 @@ export default function ProductCard({ product, onPress, layout = 'grid' }: Produ
           <Text style={styles.listName} numberOfLines={2}>{product.name}</Text>
           <Text style={styles.listDesc} numberOfLines={1}>{product.description}</Text>
           <View style={styles.ratingRow}>
-            <Text style={styles.star}>★</Text>
+            <Ionicons name="star" size={11} color={Colors.warning} />
             <Text style={styles.ratingTxt}>{product.rating}</Text>
             {product.deliveryTime && <>
               <Text style={styles.dot}>·</Text>
-              <Text style={styles.deliveryTxt}>⚡ {product.deliveryTime}</Text>
+              <Ionicons name="flash-outline" size={11} color={Colors.primary} />
+              <Text style={styles.deliveryTxt}>{product.deliveryTime}</Text>
             </>}
           </View>
           <View style={styles.listBottom}>
@@ -56,10 +58,13 @@ export default function ProductCard({ product, onPress, layout = 'grid' }: Produ
         )}
       </View>
       <View style={styles.gridInfo}>
-        <Text style={styles.deliveryChip}>⚡ {product.deliveryTime || '15 mins'}</Text>
+        <View style={styles.deliveryChipRow}>
+          <Ionicons name="flash-outline" size={11} color={Colors.primary} />
+          <Text style={styles.deliveryChip}>{product.deliveryTime || '15 mins'}</Text>
+        </View>
         <Text style={styles.gridName} numberOfLines={2}>{product.name}</Text>
         <View style={styles.gridRating}>
-          <Text style={styles.star}>★</Text>
+          <Ionicons name="star" size={11} color={Colors.warning} />
           <Text style={styles.ratingTxt}>{product.rating}</Text>
         </View>
         <View style={styles.gridBottom}>
@@ -113,7 +118,8 @@ const styles = StyleSheet.create({
   },
   vegDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success },
   gridInfo: { padding: 10 },
-  deliveryChip: { fontSize: 10, color: Colors.primary, fontWeight: '600', marginBottom: 3 },
+  deliveryChipRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 3 },
+  deliveryChip: { fontSize: 10, color: Colors.primary, fontWeight: '600' },
   gridName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.gray800, lineHeight: 18 },
   gridRating: { flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 2 },
   gridBottom: {
@@ -142,7 +148,6 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full, marginBottom: 4,
   },
   badgeTxt: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
-  star: { fontSize: 11, color: Colors.warning },
   ratingTxt: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.gray700 },
   dot: { color: Colors.gray300, fontSize: FontSize.xs },
   deliveryTxt: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },

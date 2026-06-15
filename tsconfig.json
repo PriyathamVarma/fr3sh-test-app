@@ -13,5 +13,15 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "components/hello-wave.tsx",
+    "components/parallax-scroll-view.tsx",
+    "components/external-link.tsx",
+    "components/ui/icon-symbol.tsx",
+    "components/ui/icon-symbol.ios.tsx",
+    "components/ui/collapsible.tsx",
+    "./hooks/use-theme-color.ts"
   ]
 }
