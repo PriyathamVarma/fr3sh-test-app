@@ -71,9 +71,10 @@ export default function FarmerListScreen() {
         sort: sort.value,
       });
 
-      setFarmers(res.data.items ?? []);
-      setTotal(res.data.meta?.total ?? res.data.items?.length ?? 0);
-      setSource(res.data.source);
+      const items = Array.isArray(res.data?.items) ? res.data.items : [];
+      setFarmers(items);
+      setTotal(res.data?.meta?.total ?? items.length);
+      setSource(res.data?.source);
     } catch (err: any) {
       setError(err?.message ?? 'Unable to load farmers from the web app API.');
       setFarmers([]);
@@ -177,7 +178,7 @@ export default function FarmerListScreen() {
           <Text style={styles.headerEyebrow}>Farmer directory</Text>
           <Text style={styles.headerTitle}>Meet the growers</Text>
           <Text style={styles.headerSub}>
-            {loading ? 'Loading farmers from MongoDB...' : `${filtered.length} shown of ${total} farmers`}
+            {loading ? 'Loading farmers...' : `${filtered.length} shown of ${total} farmers`}
           </Text>
         </View>
       </View>
@@ -256,7 +257,7 @@ export default function FarmerListScreen() {
 
       {!!source && (
         <View style={styles.notice}>
-          <Text style={styles.noticeText}>Showing sample farmers because the web API could not reach MongoDB.</Text>
+          <Text style={styles.noticeText}>Showing sample farmers because the live farmer data is temporarily unavailable.</Text>
         </View>
       )}
 

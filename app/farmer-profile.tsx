@@ -324,7 +324,7 @@ export default function FarmerProfileScreen() {
         <View style={styles.trustBlock}>
           <Text style={styles.trustTitle}>Direct from farm</Text>
           <Text style={styles.trustText}>
-            Products and profile details here are loaded from the Farmers Republic backend, which reads the farmer data from MongoDB.
+            Products and profile details here are loaded directly from the Farmers Republic backend.
           </Text>
         </View>
 

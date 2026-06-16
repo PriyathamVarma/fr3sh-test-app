@@ -54,7 +54,7 @@ export default function FPOListScreen() {
         <View>
           <Text style={styles.headerTitle}>Farmer Producer Orgs</Text>
           <Text style={styles.headerSub}>
-            {loading ? 'Loading FPOs from MongoDB' : `${filtered.length} FPOs from API`}
+            {loading ? 'Loading FPOs...' : `${filtered.length} FPOs found`}
           </Text>
         </View>
       </View>
@@ -75,7 +75,7 @@ export default function FPOListScreen() {
       <View style={styles.infoBanner}>
         <Ionicons name="information-circle-outline" size={17} color={Colors.primary} />
         <Text style={styles.infoText}>
-          FPOs are shown only when the web backend exposes a live MongoDB API for them.
+          FPOs are shown only when the backend has live data available for them.
         </Text>
       </View>
 
@@ -98,7 +98,7 @@ export default function FPOListScreen() {
               />
               <Text style={styles.emptyTitle}>{error ? 'FPO API unavailable' : 'No FPOs found'}</Text>
               <Text style={styles.emptySub}>
-                {error ?? 'No FPO records were returned from MongoDB.'}
+                {error ?? 'No FPO records were found.'}
               </Text>
             </View>
           }

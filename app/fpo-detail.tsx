@@ -99,7 +99,7 @@ export default function FPODetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
           <Text style={styles.body}>
-            {fpo.description || 'No FPO description has been added in MongoDB yet.'}
+            {fpo.description || 'No FPO description has been added yet.'}
           </Text>
         </View>
 

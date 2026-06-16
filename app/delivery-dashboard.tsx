@@ -109,11 +109,13 @@ export default function DeliveryDashboardScreen() {
         {orders.map(order => {
           const meta = STATUS_META[order.status] ?? { label: order.status, color: Colors.foregroundMuted, bg: Colors.border, action: '' };
           const hasAction = !!NEXT_STATUS[order.status];
-          const itemSummary = order.items.map(i => i.name).join(', ');
+          const itemSummary = (order.items ?? []).map(i => i.name).join(', ') || 'No items listed';
+          const orderKey = order._id || (order as any).id || `${order.status}-${order.total}-${Math.random()}`;
+          const orderIdShort = (order._id || (order as any).id || '').toString().slice(-8).toUpperCase() || 'N/A';
           return (
-            <View key={order._id} style={styles.orderCard}>
+            <View key={orderKey} style={styles.orderCard}>
               <View style={styles.orderTop}>
-                <Text style={styles.orderId}>#{order._id.slice(-8).toUpperCase()}</Text>
+                <Text style={styles.orderId}>#{orderIdShort}</Text>
                 <View style={[styles.statusPill, { backgroundColor: meta.bg }]}>
                   <Text style={[styles.statusPillText, { color: meta.color }]}>{meta.label}</Text>
                 </View>
@@ -125,7 +127,7 @@ export default function DeliveryDashboardScreen() {
               <View style={styles.orderFoot}>
                 <Text style={styles.total}>₹{order.total}</Text>
                 {hasAction ? (
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus(order._id, order.status)}>
+                  <TouchableOpacity style={styles.actionBtn} onPress={() => updateStatus(order._id || (order as any).id, order.status)}>
                     <Text style={styles.actionBtnText}>{meta.action}</Text>
                   </TouchableOpacity>
                 ) : (

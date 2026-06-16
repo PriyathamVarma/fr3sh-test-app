@@ -26,11 +26,25 @@ async function request<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new ApiError(0, 'Request timed out. Please check your connection and try again.');
+    }
+    throw new ApiError(0, err?.message ?? 'Network request failed. Please check your connection and try again.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const contentType = res.headers.get('content-type') ?? '';
   const data = contentType.includes('application/json') ? await res.json() : null;
@@ -44,6 +58,56 @@ async function request<T>(
   }
 
   return data;
+}
+
+type ApiListEnvelope<T> = T[] | {
+  items?: T[];
+  data?: T[];
+  results?: T[];
+  products?: T[];
+  orders?: T[];
+  transactions?: T[];
+  badges?: T[];
+  fpos?: T[];
+  meta?: any;
+  page?: number;
+  limit?: number;
+  total?: number;
+  totalPages?: number;
+};
+
+function listFrom<T>(value: ApiListEnvelope<T> | null | undefined, keys: string[] = ['items']): T[] {
+  if (Array.isArray(value)) return value;
+  if (!value || typeof value !== 'object') return [];
+  for (const key of keys) {
+    const candidate = (value as Record<string, unknown>)[key];
+    if (Array.isArray(candidate)) return candidate as T[];
+  }
+  return [];
+}
+
+function entityId(item: any): string {
+  return String(item?.id ?? item?._id ?? '');
+}
+
+function withEntityId<T extends Record<string, any>>(item: T): T & { id: string; _id: string } {
+  const id = entityId(item);
+  return { ...item, id, _id: id || String(item?._id ?? '') };
+}
+
+function compactQuery(params?: Record<string, unknown>): string {
+  const search = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      search.set(key, String(value));
+    }
+  });
+  return search.toString();
+}
+
+function safeNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -80,7 +144,7 @@ export const productsApi = {
       query.q = query.search;
     }
     delete query.search;
-    const qs = new URLSearchParams(query as any).toString();
+    const qs = compactQuery(query as any);
     return request<ProductsResponse>(`/api/v1/products${qs ? `?${qs}` : ''}`);
   },
 
@@ -94,9 +158,23 @@ export const productsApi = {
 // ─── Farmers ──────────────────────────────────────────────────────────────────
 
 export const farmersApi = {
-  list: (params?: { page?: number; limit?: number; q?: string; place?: string; district?: string; state?: string; sort?: string }) => {
-    const qs = new URLSearchParams(params as any).toString();
-    return request<FarmersResponse>(`/api/v1/farmers${qs ? `?${qs}` : ''}`);
+  list: async (params?: { page?: number; limit?: number; q?: string; place?: string; district?: string; state?: string; sort?: string }) => {
+    const qs = compactQuery(params as any);
+    const res = await request<{ success: boolean; message?: string; data?: any }>(`/api/v1/farmers${qs ? `?${qs}` : ''}`);
+    const items = listFrom<FarmerProfile>(res.data, ['items', 'farmers', 'data']).map(withEntityId);
+    return {
+      ...res,
+      data: {
+        items,
+        meta: res.data?.meta ?? {
+          total: safeNumber(res.data?.total, items.length),
+          page: safeNumber(params?.page, 1),
+          limit: safeNumber(params?.limit, items.length),
+          totalPages: safeNumber(res.data?.totalPages, 1),
+        },
+        source: res.data?.source,
+      },
+    } as FarmersResponse;
   },
 
   detail: (id: string) =>
@@ -113,7 +191,7 @@ export const farmersApi = {
 
 export const harvestsApi = {
   list: (params?: { status?: string; page?: number }) => {
-    const qs = new URLSearchParams(params as any).toString();
+    const qs = compactQuery(params as any);
     return request<HarvestsResponse>(`/api/v1/harvests${qs ? `?${qs}` : ''}`);
   },
 
@@ -127,24 +205,34 @@ export const harvestsApi = {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 export const ordersApi = {
-  buyerOrders: (buyerId: string) =>
-    request<{ success: boolean; data: Order[] }>(`/api/v1/orders/${buyerId}`),
+  buyerOrders: async (buyerId: string) => {
+    const res = await request<{ success: boolean; data?: any }>(
+      `/api/v1/farmers/orders/voice/buyerOrders?buyerId=${encodeURIComponent(buyerId)}`
+    );
+    const orders = listFrom<Order>(res.data, ['orders', 'items', 'data']).map(withEntityId);
+    return { ...res, data: orders };
+  },
 
   orderDetail: (id: string) =>
-    request<{ success: boolean; data: Order }>(`/api/v1/orders/details/${id}`),
+    request<{ success: boolean; data: Order }>(`/api/v1/orders/${id}`),
 
   create: (body: CreateOrderBody) =>
-    request('/api/v1/orders', { method: 'POST', body: JSON.stringify(body) }),
+    request('/api/v1/farmers/orders/voice/buyerOrders', { method: 'POST', body: JSON.stringify(body) }),
 
-  prebookings: (buyerId: string) =>
-    request<{ success: boolean; data: any[] }>(`/api/v1/prebookings?buyerId=${buyerId}`),
+  prebookings: async (buyerId: string) => {
+    const res = await request<{ success: boolean; data?: any }>(
+      `/api/v1/prebookings?buyerId=${encodeURIComponent(buyerId)}`
+    );
+    const prebookings = listFrom<any>(res.data, ['items', 'prebookings', 'data']).map(withEntityId);
+    return { ...res, data: prebookings };
+  },
 };
 
 // ─── FPOs ─────────────────────────────────────────────────────────────────────
 
 export const fposApi = {
   list: (params?: { q?: string }) => {
-    const qs = new URLSearchParams(params as any).toString();
+    const qs = compactQuery(params as any);
     return request<{ success: boolean; data: { fpos: FPO[]; total: number } }>(`/api/v1/fpos${qs ? `?${qs}` : ''}`);
   },
   detail: (id: string) => request<{ success: boolean; data: FPO }>(`/api/v1/fpos/${id}`),
@@ -153,33 +241,83 @@ export const fposApi = {
 // ─── Wallet ───────────────────────────────────────────────────────────────────
 
 export const walletApi = {
-  balance: (userId: string) =>
-    request<{ success: boolean; data: { balance: number } }>(`/api/v1/wallet?userId=${userId}`),
+  balance: async (userId: string) => {
+    const res = await request<{ success: boolean; data?: any }>(
+      `/api/v1/wallet?userId=${encodeURIComponent(userId)}`
+    );
+    return {
+      ...res,
+      data: {
+        wallet: res.data?.wallet,
+        balance: safeNumber(res.data?.balance ?? res.data?.wallet?.balance, 0),
+      },
+    };
+  },
 
-  transactions: (userId: string) =>
-    request<{ success: boolean; data: WalletTransaction[] }>(`/api/v1/wallet/transactions?userId=${userId}`),
+  transactions: async (userId: string) => {
+    const res = await request<{ success: boolean; data?: any }>(
+      `/api/v1/wallet/transactions?userId=${encodeURIComponent(userId)}`
+    );
+    const transactions = listFrom<WalletTransaction>(res.data, ['transactions', 'items', 'data'])
+      .map((transaction) => ({
+        ...withEntityId(transaction),
+        balanceAfter: safeNumber((transaction as any).balanceAfter ?? (transaction as any).runningBalance, 0),
+      }));
+    return { ...res, data: transactions, wallet: res.data?.wallet, meta: res.data?.meta };
+  },
 };
 
 // ─── Referral ─────────────────────────────────────────────────────────────────
 
 export const referralApi = {
-  stats: (userId: string) =>
-    request<{ success: boolean; data: ReferralStats }>(`/api/v1/referral?referrerId=${userId}`),
+  stats: async (userId: string) => {
+    const res = await request<{ success: boolean; data?: any }>(
+      `/api/v1/referral?userId=${encodeURIComponent(userId)}`
+    );
+    return {
+      ...res,
+      data: {
+        totalReferrals: safeNumber(res.data?.totalReferrals ?? res.data?.stats?.totalReferrals, 0),
+        rewardsCredited: safeNumber(res.data?.rewardsCredited ?? res.data?.stats?.rewardedCount, 0),
+        totalEarned: safeNumber(res.data?.totalEarned ?? res.data?.stats?.totalEarned, 0),
+        referralCode: res.data?.referralCode,
+        referralLink: res.data?.referralLink,
+      },
+    };
+  },
 };
 
 // ─── Badges ───────────────────────────────────────────────────────────────────
 
 export const badgesApi = {
-  list: (userId: string) =>
-    request<{ success: boolean; data: UserBadge[] }>(`/api/v1/badges?userId=${userId}`),
+  list: async (userId: string) => {
+    const res = await request<{ success: boolean; data?: any }>(
+      `/api/v1/badges?userId=${encodeURIComponent(userId)}`
+    );
+    const badges = listFrom<any>(res.data, ['badges', 'items', 'data'])
+      .filter((badge) => badge?.earned !== false)
+      .map((badge) => ({
+        ...badge,
+        badgeId: String(badge.badgeId ?? badge.id ?? ''),
+        earnedAt: badge.earnedAt ?? '',
+      }))
+      .filter((badge) => badge.badgeId);
+    return { ...res, data: badges };
+  },
 };
 
 // ─── Community ────────────────────────────────────────────────────────────────
 
 export const communityApi = {
-  list: (params?: { location?: string }) => {
-    const qs = new URLSearchParams(params as any).toString();
-    return request<{ success: boolean; data: CommunityGroup[] }>(`/api/v1/community${qs ? `?${qs}` : ''}`);
+  list: async (params?: { location?: string }) => {
+    const qs = compactQuery(params as any);
+    const res = await request<{ success: boolean; data?: any }>(`/api/v1/community${qs ? `?${qs}` : ''}`);
+    const groups = listFrom<CommunityGroup>(res.data, ['items', 'groups', 'data'])
+      .map((group) => ({
+        ...withEntityId(group),
+        joinCode: String((group as any).joinCode ?? '').toUpperCase(),
+      }));
+    return { ...res, data: groups, meta: res.data?.meta };
   },
   detail: (id: string) =>
     request<{ success: boolean; data: CommunityGroup }>(`/api/v1/community/${id}`),
@@ -191,7 +329,7 @@ export const communityApi = {
 
 export const deliveryApi = {
   orders: (params?: { status?: string; page?: number; limit?: number }) => {
-    const qs = new URLSearchParams(params as any).toString();
+    const qs = compactQuery(params as any);
     return request<{ success: boolean; data: { orders: Order[]; page: number; limit: number; total: number; totalPages: number } }>(
       `/api/v1/delivery/orders${qs ? `?${qs}` : ''}`
     );
@@ -381,6 +519,7 @@ export interface HarvestsResponse {
 
 export interface Order {
   _id: string;
+  id?: string;
   buyerId: string;
   items: OrderItem[];
   subtotal: number;
@@ -425,6 +564,7 @@ export interface FPO {
 
 export interface WalletTransaction {
   _id: string;
+  id?: string;
   type: 'credit' | 'debit';
   amount: number;
   description: string;
@@ -435,16 +575,20 @@ export interface WalletTransaction {
 export interface ReferralStats {
   totalReferrals: number;
   rewardsCredited: number;
+  totalEarned?: number;
   referralCode?: string;
+  referralLink?: string;
 }
 
 export interface UserBadge {
   badgeId: string;
   earnedAt: string;
+  earned?: boolean;
 }
 
 export interface CommunityGroup {
   _id: string;
+  id?: string;
   name: string;
   type: string;
   location: string;

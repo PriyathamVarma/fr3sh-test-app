@@ -107,6 +107,10 @@ export default function ProfileScreen() {
   const sections = [...MENU_SECTIONS];
   if (user.type === 'Farmer') sections.splice(1, 0, FARMER_MENU);
   if (user.type === 'Logistics Provider') sections.splice(1, 0, DELIVERY_MENU);
+  const displayName = user.name?.trim() || 'FR3SH user';
+  const displayEmail = user.email || user.phoneNumber || user.phone || 'Account details unavailable';
+  const role = user.type || 'Buyer';
+  const avatarInitial = displayName[0]?.toUpperCase() || 'F';
 
   return (
     <View style={styles.root}>
@@ -119,16 +123,16 @@ export default function ProfileScreen() {
               <Image source={{ uri: user.photo }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitial}>{user.name[0].toUpperCase()}</Text>
+                <Text style={styles.avatarInitial}>{avatarInitial}</Text>
               </View>
             )}
             <TouchableOpacity style={styles.avatarEditBtn} onPress={() => router.push('/edit-profile')}>
               <Ionicons name="pencil" size={12} color={Colors.foregroundHeading} />
             </TouchableOpacity>
           </View>
-          <Text style={styles.profileName}>{user.name}</Text>
-          <Text style={styles.profileEmail}>{user.email}</Text>
-          <View style={styles.roleBadge}><Text style={styles.roleText}>{user.type}</Text></View>
+          <Text style={styles.profileName}>{displayName}</Text>
+          <Text style={styles.profileEmail}>{displayEmail}</Text>
+          <View style={styles.roleBadge}><Text style={styles.roleText}>{role}</Text></View>
           {(user.isSubscribed || user.subscription?.active) && (
             <View style={styles.plusBadge}>
               <Ionicons name="star" size={12} color={Colors.foregroundHeading} />

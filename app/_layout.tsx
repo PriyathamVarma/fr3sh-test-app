@@ -1,7 +1,21 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { CartProvider } from '@/context/CartContext';
 import { UserProvider } from '@/context/UserContext';
+import { Colors, FontSize, BorderRadius } from '@/constants/theme';
+
+export function ErrorBoundary({ error, retry }: { error: Error; retry: () => void }) {
+  return (
+    <View style={styles.errorRoot}>
+      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <Text style={styles.errorMessage}>{error.message || 'This screen could not be opened.'}</Text>
+      <TouchableOpacity style={styles.retryBtn} onPress={retry}>
+        <Text style={styles.retryText}>Try Again</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export default function RootLayout() {
   return (
@@ -40,3 +54,38 @@ export default function RootLayout() {
     </UserProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  errorRoot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    gap: 12,
+    backgroundColor: Colors.surface,
+  },
+  errorTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: '900',
+    color: Colors.foregroundHeading,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: FontSize.sm,
+    color: Colors.foregroundMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryBtn: {
+    marginTop: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  retryText: {
+    color: Colors.primaryForeground,
+    fontSize: FontSize.sm,
+    fontWeight: '800',
+  },
+});

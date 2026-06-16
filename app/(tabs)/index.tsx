@@ -109,6 +109,7 @@ export default function HomeScreen() {
     if (spotlightFarmers.length > 0) return `${spotlightFarmers.length} farmers`;
     return 'Farmers';
   }, [farmerTotal, spotlightFarmers.length]);
+  const firstName = user?.name?.trim()?.split(/\s+/)[0] || 'there';
 
   // Auto-advance banner
   useEffect(() => {
@@ -180,7 +181,7 @@ export default function HomeScreen() {
               <Ionicons name="location-outline" size={20} color={Colors.primary} />
               <View>
                 <Text style={styles.locationGreeting}>
-                  {user ? `${greeting()}, ${user.name.split(' ')[0]}` : 'Delivering to'}
+                  {user ? `${greeting()}, ${firstName}` : 'Delivering to'}
                 </Text>
                 <TouchableOpacity style={styles.locationRow}>
                   <Text style={styles.locationValue}>Hyderabad, 500001</Text>
@@ -405,7 +406,7 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.farmerName}>Browse farmers</Text>
                 <Text style={styles.farmerDistrict}>Connect the backend</Text>
-                <Text style={styles.farmerCrops} numberOfLines={1}>MongoDB profiles</Text>
+                <Text style={styles.farmerCrops} numberOfLines={1}>Verified profiles</Text>
               </TouchableOpacity>
             ) : spotlightFarmers.map((f) => {
               const image = farmerImage(f);

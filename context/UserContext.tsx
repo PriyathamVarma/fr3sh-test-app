@@ -40,8 +40,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (u: UserProfile, token?: string) => {
-    setUser(u);
-    await AsyncStorage.setItem('fr_user', JSON.stringify(u));
+    const normalized: UserProfile = { ...u, id: u.id ?? (u as any)._id?.toString() };
+    setUser(normalized);
+    await AsyncStorage.setItem('fr_user', JSON.stringify(normalized));
     if (token) await AsyncStorage.setItem('fr_token', token);
   };
 

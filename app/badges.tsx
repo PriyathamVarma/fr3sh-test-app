@@ -25,13 +25,28 @@ export default function BadgesScreen() {
   const { user } = useUser();
   const [userBadges, setUserBadges] = useState<UserBadge[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) { setLoading(false); return; }
-    badgesApi.list(user.id).then(r => setUserBadges(r.data ?? [])).catch(() => {}).finally(() => setLoading(false));
+    if (!user?.id) {
+      setUserBadges([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    badgesApi.list(user.id)
+      .then(r => {
+        setUserBadges(Array.isArray(r.data) ? r.data : []);
+        setError(null);
+      })
+      .catch((e: any) => {
+        setUserBadges([]);
+        setError(e?.message ?? 'Could not load your badges.');
+      })
+      .finally(() => setLoading(false));
   }, [user?.id]);
 
-  const earnedIds = new Set(userBadges.map(b => b.badgeId));
+  const earnedIds = new Set((Array.isArray(userBadges) ? userBadges : []).map(b => b.badgeId).filter(Boolean));
   const earned = (BADGE_DEFS as readonly BadgeDef[]).filter(b => earnedIds.has(b.id));
   const locked = (BADGE_DEFS as readonly BadgeDef[]).filter(b => !earnedIds.has(b.id));
 
@@ -64,6 +79,13 @@ export default function BadgesScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
+        {error && (
+          <View style={styles.errorCard}>
+            <Ionicons name="alert-circle-outline" size={22} color={Colors.statusDanger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        )}
+
         {/* Progress */}
         <View style={styles.progressCard}>
           <Text style={styles.progressTitle}>
@@ -133,6 +155,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceCard, padding: 20, margin: 16,
     borderRadius: BorderRadius.xl, borderWidth: 1, borderColor: Colors.border, ...Shadow.sm, gap: 8,
   },
+  errorCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.statusDangerSurface, borderRadius: BorderRadius.md, padding: 12, marginHorizontal: 16, marginTop: 16 },
+  errorText: { flex: 1, color: Colors.statusDanger, fontSize: FontSize.sm, fontWeight: '700' },
   progressTitle: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.foregroundHeading },
   progressBar: { height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: Colors.secondary, borderRadius: 4 },

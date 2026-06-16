@@ -11,9 +11,10 @@ import { referralApi, ReferralStats } from '@/services/api';
 
 export default function ReferralScreen() {
   const { user } = useUser();
-  const referralCode = user ? `FR3SH${user.id.slice(-6).toUpperCase()}` : 'FR3SH123456';
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState<ReferralStats | null>(null);
+  const fallbackCode = user?.id ? `FR3SH${user.id.slice(-6).toUpperCase()}` : 'FR3SH';
+  const referralCode = stats?.referralCode || fallbackCode;
 
   useEffect(() => {
     if (!user?.id) return;
@@ -21,9 +22,13 @@ export default function ReferralScreen() {
   }, [user?.id]);
 
   const copyCode = () => {
-    Clipboard.setString(referralCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (Clipboard?.setString) {
+      Clipboard.setString(referralCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      Alert.alert('Referral Code', referralCode);
+    }
   };
 
   const share = async () => {
@@ -68,7 +73,7 @@ export default function ReferralScreen() {
         <View style={styles.statsRow}>
           {[
             { val: String(stats?.totalReferrals ?? 0), lbl: 'Friends Referred' },
-            { val: `₹${stats?.rewardsCredited ?? 0}`, lbl: 'Earned So Far' },
+            { val: `₹${stats?.totalEarned ?? stats?.rewardsCredited ?? 0}`, lbl: 'Earned So Far' },
           ].map((s, i) => (
             <View key={i} style={[styles.stat, i > 0 && styles.statBorder]}>
               <Text style={styles.statVal}>{s.val}</Text>
@@ -118,7 +123,7 @@ export default function ReferralScreen() {
               <Ionicons name="people-outline" size={22} color={Colors.primary} />
               <View style={styles.referralInfo}>
                 <Text style={styles.referralName}>{stats.totalReferrals} friends referred</Text>
-                <Text style={styles.referralDate}>₹{stats.rewardsCredited} total earned</Text>
+                <Text style={styles.referralDate}>₹{stats.totalEarned ?? stats.rewardsCredited ?? 0} total earned</Text>
               </View>
             </View>
           </View>

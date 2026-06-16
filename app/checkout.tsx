@@ -78,7 +78,7 @@ export default function CheckoutScreen() {
       setOrderId(res.data?._id ?? res.order?._id ?? null);
       setStep('confirm');
     } catch (err: any) {
-      Alert.alert('Order Failed', err.message ?? 'Could not create the order in MongoDB.');
+      Alert.alert('Order Failed', err.message ?? 'Could not place your order. Please try again.');
     } finally {
       setPlacing(false);
     }

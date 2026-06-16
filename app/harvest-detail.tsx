@@ -29,7 +29,7 @@ export default function HarvestDetailScreen() {
         const res = await harvestsApi.detail(id);
         setHarvest(res.data);
       } catch (err: any) {
-        setError(err.message ?? 'Could not load harvest from MongoDB.');
+        setError(err.message ?? 'Could not load this harvest. Please try again.');
         setHarvest(null);
       } finally {
         setLoading(false);

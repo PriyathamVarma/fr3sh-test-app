@@ -23,7 +23,10 @@ export default function OrderDetailScreen() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setLoading(false);
+      return;
+    }
     ordersApi.orderDetail(id as string)
       .then(res => setOrder(res.data))
       .catch(() => setOrder(null))
@@ -51,6 +54,11 @@ export default function OrderDetailScreen() {
 
   const statusMeta = STATUS_META[order.status] ?? STATUS_META.pending;
   const currentStep = STATUS_STEPS.indexOf(order.status);
+  const orderId = order._id || order.id || String(id ?? '');
+  const createdAt = order.createdAt ? new Date(order.createdAt) : null;
+  const dateLabel = createdAt && !Number.isNaN(createdAt.getTime())
+    ? createdAt.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'Date unavailable';
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.surface }}>
@@ -60,8 +68,8 @@ export default function OrderDetailScreen() {
           <Text style={styles.backIcon}>‹</Text>
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Order #{order._id.slice(-8).toUpperCase()}</Text>
-          <Text style={styles.headerSub}>{new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</Text>
+          <Text style={styles.headerTitle}>Order #{orderId.slice(-8).toUpperCase()}</Text>
+          <Text style={styles.headerSub}>{dateLabel}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: statusMeta.bg }]}>
           <Text style={[styles.statusBadgeText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
@@ -106,10 +114,10 @@ export default function OrderDetailScreen() {
           {(order.items ?? []).map((item, i) => (
             <View key={i} style={styles.itemRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemQty}>× {item.qty}</Text>
+                <Text style={styles.itemName}>{item.name || 'Item'}</Text>
+                <Text style={styles.itemQty}>× {item.qty ?? 1}</Text>
               </View>
-              <Text style={styles.itemPrice}>₹{item.price * item.qty}</Text>
+              <Text style={styles.itemPrice}>₹{Number(item.price ?? 0) * Number(item.qty ?? 1)}</Text>
             </View>
           ))}
         </View>
@@ -134,7 +142,7 @@ export default function OrderDetailScreen() {
 
         <TouchableOpacity
           style={styles.supportBtn}
-          onPress={() => Linking.openURL(`mailto:support@fr3sh.in?subject=FR3SH%20Order%20Support%20${encodeURIComponent(order._id)}`)}
+          onPress={() => Linking.openURL(`mailto:support@fr3sh.in?subject=FR3SH%20Order%20Support%20${encodeURIComponent(orderId)}`)}
         >
           <Text style={styles.supportBtnText}>Need Help? Contact Support</Text>
         </TouchableOpacity>

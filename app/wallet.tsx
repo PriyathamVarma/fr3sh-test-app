@@ -14,12 +14,30 @@ export default function WalletScreen() {
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) { setLoading(false); return; }
+    if (!user?.id) {
+      setTransactions([]);
+      setBalance(0);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
     Promise.all([
-      walletApi.balance(user.id).then(r => setBalance(r.data?.balance ?? 0)).catch(() => {}),
-      walletApi.transactions(user.id).then(r => setTransactions(r.data ?? [])).catch(() => {}),
+      walletApi.balance(user.id)
+        .then(r => setBalance(Number(r.data?.balance ?? 0)))
+        .catch((e: any) => {
+          setBalance(0);
+          setError(e?.message ?? 'Could not load wallet balance.');
+        }),
+      walletApi.transactions(user.id)
+        .then(r => setTransactions(Array.isArray(r.data) ? r.data : []))
+        .catch((e: any) => {
+          setTransactions([]);
+          setError(e?.message ?? 'Could not load wallet transactions.');
+        }),
     ]).finally(() => setLoading(false));
   }, [user?.id]);
 
@@ -52,15 +70,23 @@ export default function WalletScreen() {
 
         {/* Transactions */}
         <Text style={styles.txnTitle}>Transaction History</Text>
-        {loading ? (
+        {error ? (
+          <View style={styles.errorCard}>
+            <Ionicons name="alert-circle-outline" size={22} color={Colors.statusDanger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : loading ? (
           <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 20 }} />
         ) : transactions.length === 0 ? (
           <View style={{ alignItems: 'center', padding: 32, gap: 8 }}>
             <Ionicons name="wallet-outline" size={40} color={Colors.foregroundMuted} />
             <Text style={{ fontSize: FontSize.sm, color: Colors.foregroundMuted }}>No transactions yet</Text>
           </View>
-        ) : transactions.map(t => (
-          <View key={t._id} style={styles.txnRow}>
+        ) : transactions.map((t, index) => {
+          const transactionId = t._id || t.id || `${t.createdAt}-${index}`;
+          const createdAt = t.createdAt ? new Date(t.createdAt) : null;
+          return (
+          <View key={transactionId} style={styles.txnRow}>
             <View style={[styles.txnIcon, t.type === 'credit' ? styles.txnIconCredit : styles.txnIconDebit]}>
               <Ionicons
                 name={t.type === 'credit' ? 'arrow-down-outline' : 'arrow-up-outline'}
@@ -69,17 +95,20 @@ export default function WalletScreen() {
               />
             </View>
             <View style={styles.txnInfo}>
-              <Text style={styles.txnDesc}>{t.description}</Text>
-              <Text style={styles.txnDate}>{new Date(t.createdAt).toLocaleDateString('en-IN')}</Text>
+              <Text style={styles.txnDesc}>{t.description || 'Wallet transaction'}</Text>
+              <Text style={styles.txnDate}>
+                {createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleDateString('en-IN') : 'Date unavailable'}
+              </Text>
             </View>
             <View style={styles.txnAmt}>
               <Text style={[styles.txnAmtVal, t.type === 'credit' ? styles.creditAmt : styles.debitAmt]}>
-                {t.type === 'credit' ? '+' : '-'}₹{t.amount}
+                {t.type === 'credit' ? '+' : '-'}₹{Number(t.amount ?? 0)}
               </Text>
-              <Text style={styles.txnBal}>Bal: ₹{t.balanceAfter}</Text>
+              <Text style={styles.txnBal}>Bal: ₹{Number(t.balanceAfter ?? 0)}</Text>
             </View>
           </View>
-        ))}
+          );
+        })}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -116,6 +145,8 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase', letterSpacing: 0.8,
     paddingHorizontal: 16, marginBottom: 8,
   },
+  errorCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.statusDangerSurface, borderRadius: BorderRadius.md, padding: 12, marginHorizontal: 16, marginBottom: 12 },
+  errorText: { flex: 1, color: Colors.statusDanger, fontSize: FontSize.sm, fontWeight: '700' },
   txnRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.surfaceCard, padding: 14,

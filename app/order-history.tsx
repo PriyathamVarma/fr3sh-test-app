@@ -28,14 +28,22 @@ export default function OrderHistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('All');
+  const [error, setError] = useState<string | null>(null);
 
   const fetchOrders = useCallback(async () => {
-    if (!user?.id) { setLoading(false); return; }
+    if (!user?.id) {
+      setOrders([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
       const res = await ordersApi.buyerOrders(user.id);
-      setOrders(res.data ?? []);
-    } catch {
+      setOrders(Array.isArray(res.data) ? res.data : []);
+      setError(null);
+    } catch (e: any) {
       setOrders([]);
+      setError(e?.message ?? 'Could not load your orders.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,15 +64,17 @@ export default function OrderHistoryScreen() {
 
   const renderOrder = ({ item: o }: { item: Order }) => {
     const meta = STATUS_META[o.status] ?? STATUS_META.pending;
+    const orderId = o._id || o.id || '';
+    const createdAt = o.createdAt ? new Date(o.createdAt) : null;
     return (
       <TouchableOpacity
         style={styles.card}
-        onPress={() => router.push({ pathname: '/order-detail', params: { id: o._id } })}
+        onPress={() => orderId && router.push({ pathname: '/order-detail', params: { id: orderId } })}
         activeOpacity={0.9}
       >
         <View style={styles.cardTop}>
           <View style={styles.orderIdRow}>
-            <Text style={styles.orderId}>{o._id.slice(-8).toUpperCase()}</Text>
+            <Text style={styles.orderId}>{orderId ? orderId.slice(-8).toUpperCase() : 'ORDER'}</Text>
             <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
               <Text style={[styles.statusText, { color: meta.color }]}>
                 {meta.label}
@@ -72,16 +82,18 @@ export default function OrderHistoryScreen() {
             </View>
           </View>
           <Text style={styles.orderDate}>
-            {new Date(o.createdAt).toLocaleDateString('en-IN', {
-              day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-            })}
+            {createdAt && !Number.isNaN(createdAt.getTime())
+              ? createdAt.toLocaleDateString('en-IN', {
+                  day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                })
+              : 'Date unavailable'}
           </Text>
         </View>
 
         <View style={styles.itemsList}>
           {(o.items ?? []).slice(0, 3).map((item, i) => (
             <Text key={i} style={styles.itemText} numberOfLines={1}>
-              • {item.name} × {item.qty}
+              • {item.name || 'Item'} × {item.qty ?? 1}
             </Text>
           ))}
           {(o.items?.length ?? 0) > 3 && (
@@ -90,7 +102,7 @@ export default function OrderHistoryScreen() {
         </View>
 
         <View style={styles.cardBottom}>
-          <Text style={styles.total}>₹{o.total}</Text>
+          <Text style={styles.total}>₹{Number(o.total ?? o.subtotal ?? 0)}</Text>
           {o.status === 'delivered' ? (
             <TouchableOpacity style={styles.reorderBtn}>
               <Text style={styles.reorderText}>Reorder →</Text>
@@ -136,7 +148,7 @@ export default function OrderHistoryScreen() {
       ) : (
         <FlatList
           data={filtered}
-          keyExtractor={o => o._id}
+          keyExtractor={(o, index) => o._id || o.id || String(index)}
           renderItem={renderOrder}
           contentContainerStyle={styles.list}
           refreshControl={
@@ -145,9 +157,9 @@ export default function OrderHistoryScreen() {
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="receipt-outline" size={50} color={Colors.foregroundMuted} />
-              <Text style={styles.emptyTitle}>No orders yet</Text>
-              <Text style={styles.emptySub}>Your orders will appear here</Text>
+              <Ionicons name={error ? 'alert-circle-outline' : 'receipt-outline'} size={50} color={error ? Colors.statusDanger : Colors.foregroundMuted} />
+              <Text style={styles.emptyTitle}>{error ? 'Orders unavailable' : 'No orders yet'}</Text>
+              <Text style={styles.emptySub}>{error ?? 'Your orders will appear here'}</Text>
               <TouchableOpacity style={styles.shopBtn} onPress={() => router.push('/(tabs)')}>
                 <Text style={styles.shopBtnText}>Start Shopping →</Text>
               </TouchableOpacity>

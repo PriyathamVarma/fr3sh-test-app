@@ -17,12 +17,24 @@ export default function PrebookingsScreen() {
   const { user } = useUser();
   const [prebookings, setPrebookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.id) { setLoading(false); return; }
+    if (!user?.id) {
+      setPrebookings([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
     ordersApi.prebookings(user.id)
-      .then(r => setPrebookings(r.data ?? []))
-      .catch(() => setPrebookings([]))
+      .then(r => {
+        setPrebookings(Array.isArray(r.data) ? r.data : []);
+        setError(null);
+      })
+      .catch((e: any) => {
+        setPrebookings([]);
+        setError(e?.message ?? 'Could not load your pre-bookings.');
+      })
       .finally(() => setLoading(false));
   }, [user?.id]);
 
@@ -41,13 +53,21 @@ export default function PrebookingsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+          {error && (
+            <View style={styles.errorCard}>
+              <Ionicons name="alert-circle-outline" size={22} color={Colors.statusDanger} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          )}
           {prebookings.map((pb, i) => {
             const status = pb.status ?? 'pending';
             const meta = STATUS_META[status] ?? STATUS_META.pending;
+            const title = pb.cropName ?? pb.crop ?? pb.harvestId?.crop ?? 'Harvest';
+            const total = pb.estimatedTotal ?? pb.total ?? pb.priceAtBooking ?? 0;
             return (
-              <View key={pb._id ?? i} style={styles.card}>
+              <View key={pb._id ?? pb.id ?? i} style={styles.card}>
                 <View style={styles.cardTop}>
-                  <Text style={styles.cropName}>{pb.crop ?? pb.harvestId?.crop ?? 'Harvest'}</Text>
+                  <Text style={styles.cropName}>{title}</Text>
                   <View style={[styles.badge, { backgroundColor: meta.bg }]}>
                     <Text style={[styles.badgeText, { color: meta.color }]}>{status}</Text>
                   </View>
@@ -60,7 +80,7 @@ export default function PrebookingsScreen() {
                   </Text>
                 )}
                 <View style={styles.footer}>
-                  <Text style={styles.total}>₹{pb.estimatedTotal ?? pb.total ?? 0} estimated</Text>
+                  <Text style={styles.total}>₹{total} estimated</Text>
                 </View>
               </View>
             );
@@ -86,6 +106,8 @@ const styles = StyleSheet.create({
   backIcon: { fontSize: 28, color: Colors.white, fontWeight: '300', lineHeight: 28 },
   headerTitle: { fontSize: FontSize.xl, fontWeight: '900', color: Colors.white },
   card: { backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.xl, padding: 16, borderWidth: 1, borderColor: Colors.border, ...Shadow.sm, gap: 6 },
+  errorCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.statusDangerSurface, borderRadius: BorderRadius.md, padding: 12 },
+  errorText: { flex: 1, color: Colors.statusDanger, fontSize: FontSize.sm, fontWeight: '700' },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   cropName: { fontSize: FontSize.md, fontWeight: '800', color: Colors.foregroundHeading, flex: 1 },
   badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.full },

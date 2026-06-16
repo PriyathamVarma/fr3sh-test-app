@@ -10,16 +10,31 @@ export default function CommunityScreen() {
   const [groups, setGroups] = useState<CommunityGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    communityApi.list().then(r => setGroups(r.data ?? [])).catch(() => {}).finally(() => setLoading(false));
+    communityApi.list()
+      .then(r => {
+        setGroups(Array.isArray(r.data) ? r.data : []);
+        setError(null);
+      })
+      .catch((e: any) => {
+        setGroups([]);
+        setError(e?.message ?? 'Could not load community groups.');
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const joinGroup = async (groupId?: string, joinCode?: string) => {
-    const targetId = groupId ?? groups.find(g => g.joinCode === code.trim().toUpperCase())?._id;
+    const normalizedCode = code.trim().toUpperCase();
+    const targetId = groupId ?? groups.find(g => g.joinCode === normalizedCode)?._id;
     const targetCode = joinCode ?? code.trim().toUpperCase();
     if (!targetId) {
       Alert.alert('Invalid Code', "That code doesn't match any group. Please check and try again.");
+      return;
+    }
+    if (!targetCode) {
+      Alert.alert('Join Code Required', 'Please enter the group code.');
       return;
     }
     setJoining(targetId);
@@ -71,39 +86,48 @@ export default function CommunityScreen() {
 
         {loading ? (
           <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 20 }} />
+        ) : error ? (
+          <View style={{ alignItems: 'center', padding: 24, gap: 8 }}>
+            <Ionicons name="alert-circle-outline" size={40} color={Colors.statusDanger} />
+            <Text style={{ color: Colors.foregroundMuted, textAlign: 'center' }}>{error}</Text>
+          </View>
         ) : groups.length === 0 ? (
           <View style={{ alignItems: 'center', padding: 24, gap: 8 }}>
             <Ionicons name="people-outline" size={40} color={Colors.foregroundMuted} />
             <Text style={{ color: Colors.foregroundMuted }}>No groups found in your area</Text>
           </View>
-        ) : groups.map(g => (
-          <View key={g._id} style={styles.groupCard}>
+        ) : groups.map((g, index) => {
+          const groupId = g._id || g.id || `${g.joinCode}-${index}`;
+          const type = String(g.type ?? '').toLowerCase();
+          return (
+          <View key={groupId} style={styles.groupCard}>
             <View style={styles.groupTop}>
               <View style={styles.groupIcon}>
                 <Ionicons
-                  name={g.type === 'Apartment' ? 'business-outline' : g.type === 'Workplace' ? 'briefcase-outline' : 'people-outline'}
+                  name={type === 'apartment' ? 'business-outline' : type === 'workplace' ? 'briefcase-outline' : 'people-outline'}
                   size={22}
                   color={Colors.primary}
                 />
               </View>
               <View style={styles.groupInfo}>
-                <Text style={styles.groupName}>{g.name}</Text>
-                <Text style={styles.groupLoc}>{g.location}</Text>
-                <Text style={styles.groupMeta}>{g.type} • {g.memberCount ?? 0} members</Text>
+                <Text style={styles.groupName}>{g.name || 'Community group'}</Text>
+                <Text style={styles.groupLoc}>{g.location || 'Location unavailable'}</Text>
+                <Text style={styles.groupMeta}>{g.type || 'Community'} • {g.memberCount ?? 0} members</Text>
               </View>
             </View>
             <TouchableOpacity
               style={styles.groupBtn}
-              onPress={() => joinGroup(g._id, g.joinCode)}
-              disabled={joining === g._id}
+              onPress={() => joinGroup(groupId, g.joinCode)}
+              disabled={joining === groupId}
             >
-              {joining === g._id
+              {joining === groupId
                 ? <ActivityIndicator size="small" color={Colors.primary} />
                 : <Text style={styles.groupBtnText}>Request to Join</Text>
               }
             </TouchableOpacity>
           </View>
-        ))}
+          );
+        })}
 
         <View style={{ height: 40 }} />
       </ScrollView>
