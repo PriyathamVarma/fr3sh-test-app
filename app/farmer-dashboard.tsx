@@ -29,19 +29,34 @@ export default function FarmerDashboardScreen() {
   const { user } = useUser();
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.type !== 'Farmer') {
       Alert.alert('Access Denied', 'This dashboard is only for farmers.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
+      setLoading(false);
       return;
     }
-    farmersApi.dashboard()
-      .then(data => { if (data?.data) setStats(data.data); })
-      .catch(() => {})
+    if (!user?.id) {
+      setError('Please sign in again to load your farmer dashboard.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    farmersApi.dashboard(user.id)
+      .then(data => {
+        if (data?.data) setStats(data.data);
+      })
+      .catch((err: any) => {
+        setStats({});
+        setError(err?.message ?? 'Could not load your farmer dashboard.');
+      })
       .finally(() => setLoading(false));
-  }, [user?.type]);
+  }, [user?.id, user?.type]);
 
   if (user?.type !== 'Farmer') return null;
 
@@ -64,6 +79,20 @@ export default function FarmerDashboardScreen() {
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.errorState}>
+          <Ionicons name="alert-circle-outline" size={46} color={Colors.statusWarning} />
+          <Text style={styles.errorTitle}>Farmer profile not connected</Text>
+          <Text style={styles.errorText}>
+            {error}
+          </Text>
+          <Text style={styles.errorHint}>
+            Please complete or link your farmer profile on FR3SH web to view products, orders, revenue, and harvest stats here.
+          </Text>
+          <TouchableOpacity style={styles.errorBtn} onPress={() => router.push('/farmer-list')}>
+            <Text style={styles.errorBtnText}>Browse Farmers</Text>
+          </TouchableOpacity>
         </View>
       ) : (
       <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -115,7 +144,7 @@ export default function FarmerDashboardScreen() {
                     <Text style={styles.statusDotText}>{order.status}</Text>
                   </View>
                 </View>
-                <Text style={styles.orderBuyer}>{order.buyerName ?? 'Buyer'}</Text>
+                <Text style={styles.orderBuyer}>{order.customerName ?? order.buyerName ?? 'Buyer'}</Text>
                 <View style={styles.orderFoot}>
                   <Text style={styles.orderDate}>{order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : ''}</Text>
                   <Text style={styles.orderAmount}>₹{order.total ?? 0}</Text>
@@ -181,4 +210,10 @@ const styles = StyleSheet.create({
   orderAmount: { fontSize: FontSize.md, fontWeight: '900', color: Colors.foregroundHeading },
   harvestCard: { backgroundColor: Colors.primaryMuted, borderRadius: BorderRadius.xl, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   harvestText: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  errorState: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 10 },
+  errorTitle: { fontSize: FontSize.lg, fontWeight: '900', color: Colors.foregroundHeading, textAlign: 'center' },
+  errorText: { fontSize: FontSize.sm, color: Colors.foregroundBody, textAlign: 'center', lineHeight: 20 },
+  errorHint: { fontSize: FontSize.xs, color: Colors.foregroundMuted, textAlign: 'center', lineHeight: 18 },
+  errorBtn: { marginTop: 8, backgroundColor: Colors.primary, borderRadius: BorderRadius.md, paddingHorizontal: 18, paddingVertical: 11 },
+  errorBtnText: { color: Colors.primaryForeground, fontSize: FontSize.sm, fontWeight: '800' },
 });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   StatusBar, Alert, Image,
@@ -7,10 +7,11 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Colors, FontSize, BorderRadius, Shadow } from '@/constants/theme';
 import { useUser } from '@/context/UserContext';
+import { farmersApi } from '@/services/api';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
-interface MenuItem { icon: IoniconsName; label: string; route: string | null; }
+interface MenuItem { icon: IoniconsName; label: string; route: string; }
 interface MenuSection { title: string; items: MenuItem[]; }
 
 const MENU_SECTIONS: MenuSection[] = [
@@ -48,8 +49,6 @@ const FARMER_MENU: MenuSection = {
     { icon: 'bar-chart-outline',   label: 'Farmer Dashboard', route: '/farmer-dashboard' },
     { icon: 'leaf-outline',        label: 'My Harvests',      route: '/harvest-list'    },
     { icon: 'cube-outline',        label: 'My Orders',        route: '/order-history'   },
-    { icon: 'trending-up-outline', label: 'Analytics',        route: null               },
-    { icon: 'shield-checkmark-outline', label: 'KYC Status',  route: null               },
   ],
 };
 
@@ -57,12 +56,29 @@ const DELIVERY_MENU: MenuSection = {
   title: 'Delivery Tools',
   items: [
     { icon: 'bicycle-outline', label: 'Delivery Dashboard', route: '/delivery-dashboard' },
-    { icon: 'cash-outline',    label: 'My Earnings',        route: null                  },
   ],
 };
 
 export default function ProfileScreen() {
   const { user, logout } = useUser();
+  const [hasFarmerProfile, setHasFarmerProfile] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHasFarmerProfile(false);
+
+    if (user?.type !== 'Farmer' || !user.id) return;
+
+    farmersApi.byProfileId(user.id)
+      .then(() => {
+        if (!cancelled) setHasFarmerProfile(true);
+      })
+      .catch(() => {
+        if (!cancelled) setHasFarmerProfile(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [user?.id, user?.type]);
 
   const handleLogout = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -105,7 +121,7 @@ export default function ProfileScreen() {
   }
 
   const sections = [...MENU_SECTIONS];
-  if (user.type === 'Farmer') sections.splice(1, 0, FARMER_MENU);
+  if (user.type === 'Farmer' && hasFarmerProfile) sections.splice(1, 0, FARMER_MENU);
   if (user.type === 'Logistics Provider') sections.splice(1, 0, DELIVERY_MENU);
   const displayName = user.name?.trim() || 'FR3SH user';
   const displayEmail = user.email || user.phoneNumber || user.phone || 'Account details unavailable';
@@ -148,7 +164,7 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 key={ii}
                 style={[styles.menuRow, ii > 0 && styles.menuRowBorder]}
-                onPress={() => item.route && router.push(item.route as any)}
+                onPress={() => router.push(item.route as any)}
                 activeOpacity={0.7}
               >
                 <View style={styles.menuIconWrap}>

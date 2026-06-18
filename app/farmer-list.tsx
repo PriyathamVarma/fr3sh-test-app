@@ -257,7 +257,7 @@ export default function FarmerListScreen() {
 
       {!!source && (
         <View style={styles.notice}>
-          <Text style={styles.noticeText}>Showing sample farmers because the live farmer data is temporarily unavailable.</Text>
+          <Text style={styles.noticeText}>Live farmer data source: {source}</Text>
         </View>
       )}
 

@@ -14,10 +14,7 @@ type Step = 'address' | 'payment' | 'confirm';
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const PAYMENT_OPTIONS = [
-  { id: 'upi', label: 'UPI / GPay / PhonePe', icon: 'phone-portrait-outline' as IoniconName, sub: 'Instant • No charges' },
-  { id: 'card', label: 'Debit / Credit Card', icon: 'card-outline' as IoniconName, sub: 'Visa, Mastercard, RuPay' },
-  { id: 'wallet', label: 'FR3SH Wallet', icon: 'wallet-outline' as IoniconName, sub: 'Account wallet' },
-  { id: 'cod', label: 'Cash on Delivery', icon: 'cash-outline' as IoniconName, sub: '₹20 COD fee applies' },
+  { id: 'cod', label: 'Cash on Delivery', icon: 'cash-outline' as IoniconName, sub: 'Pay when your order arrives' },
 ];
 
 export default function CheckoutScreen() {
@@ -34,7 +31,7 @@ export default function CheckoutScreen() {
   const [pincode, setPincode] = useState('');
 
   // Payment
-  const [paymentId, setPaymentId] = useState('upi');
+  const [paymentId, setPaymentId] = useState('cod');
   const [placing, setPlacing] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
 
@@ -97,7 +94,7 @@ export default function CheckoutScreen() {
         <View style={styles.successCard}>
           <Text style={styles.successMsg}>
             Your order of <Text style={styles.bold}>₹{grandTotal}</Text> has been confirmed!
-            Expected delivery in <Text style={styles.bold}>15–30 minutes</Text>.
+            Delivery updates will appear in your order history.
           </Text>
 
           <View style={styles.deliveryTrack}>

@@ -29,16 +29,16 @@ const BANNERS = [
     id: '1',
     label: 'HARVEST SEASON',
     title: 'From Farm to\nYour Table',
-    subtitle: 'Direct from 1,200+ verified farmers',
+    subtitle: 'Direct from listed FR3SH farmers',
     icon: 'leaf-outline' as IoniconName,
     bg: Colors.primary,
     accent: Colors.secondary,
   },
   {
     id: '2',
-    label: '40% OFF TODAY',
+    label: 'FARM FRESH',
     title: 'Fresh Organic\nProduce',
-    subtitle: 'Certified organic, zero pesticides',
+    subtitle: 'Browse natural and organic listings',
     icon: 'nutrition-outline' as IoniconName,
     bg: '#047857',
     accent: '#d9f99d',
@@ -61,10 +61,10 @@ const QUICK_ACTIONS = [
 ];
 
 const TRUST_BADGES = [
-  { icon: 'shield-checkmark-outline' as IoniconName, label: 'Verified\nFarmers' },
-  { icon: 'leaf-outline' as IoniconName, label: 'Certified\nOrganic' },
+  { icon: 'shield-checkmark-outline' as IoniconName, label: 'Listed\nFarmers' },
+  { icon: 'leaf-outline' as IoniconName, label: 'Organic\nOptions' },
   { icon: 'home-outline' as IoniconName, label: 'Farm\nDirect' },
-  { icon: 'snow-outline' as IoniconName, label: 'Cold\nChain' },
+  { icon: 'snow-outline' as IoniconName, label: 'Fresh\nDelivery' },
 ];
 
 function farmerId(farmer: FarmerProfile) {
@@ -184,7 +184,7 @@ export default function HomeScreen() {
                   {user ? `${greeting()}, ${firstName}` : 'Delivering to'}
                 </Text>
                 <TouchableOpacity style={styles.locationRow}>
-                  <Text style={styles.locationValue}>Hyderabad, 500001</Text>
+                  <Text style={styles.locationValue}>Set delivery location</Text>
                   <Text style={styles.locationChevron}>▾</Text>
                 </TouchableOpacity>
               </View>
@@ -202,10 +202,10 @@ export default function HomeScreen() {
           {/* Trust strip */}
           <View style={styles.trustStrip}>
             <Ionicons name="leaf-outline" size={14} color={Colors.primary} />
-            <Text style={styles.trustText}>
-              <Text style={styles.trustBold}>{farmerCountLabel}</Text>
-              {' '}• Direct from farm • Certified organic
-            </Text>
+              <Text style={styles.trustText}>
+                <Text style={styles.trustBold}>{farmerCountLabel}</Text>
+              {' '}• Direct from farm • Fresh listings
+              </Text>
           </View>
         </View>
 

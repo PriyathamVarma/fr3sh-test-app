@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, StatusBar, Alert } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { Colors, FontSize, BorderRadius, Shadow } from '@/constants/theme';
 import { useUser } from '@/context/UserContext';
-import { subscriptionApi } from '@/services/api';
 
 const PERKS = [
   { icon: 'car-outline' as const, title: 'Free Delivery on All Orders', desc: 'No more ₹29 delivery fee — ever' },
@@ -22,27 +21,18 @@ const PLANS = [
 
 export default function FRSHPlusScreen() {
   const { user } = useUser();
-  const [selected, setSelected] = useState<'monthly' | 'annual'>('annual');
-  const [loading, setLoading] = useState(false);
-
   const isSubscribed = user?.isSubscribed;
 
-  const subscribe = async () => {
-    if (!user) { router.push('/(auth)/login'); return; }
-    setLoading(true);
-    try {
-      await subscriptionApi.subscribe({ plan: selected, userId: user.id });
-      Alert.alert('Welcome to FR3SH Plus', 'Your subscription is now active. Enjoy all the benefits!', [
-        { text: 'Start Exploring', onPress: () => router.push('/(tabs)') },
-      ]);
-    } catch (e: any) {
-      Alert.alert('Subscription Failed', e?.message ?? 'Could not activate FR3SH Plus. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const requestAccess = () => {
+    Alert.alert(
+      'FR3SH Plus',
+      'FR3SH Plus memberships are launching soon. Contact support if you already have an active membership.',
+      [
+        { text: 'Contact Support', onPress: () => router.push('/settings') },
+        { text: 'OK', style: 'cancel' },
+      ]
+    );
   };
-
-  const selectedPlan = PLANS.find(p => p.id === selected)!;
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.foregroundHeading }}>
@@ -81,41 +71,39 @@ export default function FRSHPlusScreen() {
           ))}
         </View>
 
-        {/* Plan selector */}
+        {/* Plan preview */}
         {!isSubscribed && (
           <>
-            <Text style={styles.sectionLabel}>Choose Your Plan</Text>
+            <Text style={styles.sectionLabel}>Planned Memberships</Text>
             <View style={styles.planRow}>
               {PLANS.map(plan => (
-                <TouchableOpacity
+                <View
                   key={plan.id}
-                  style={[styles.planCard, selected === plan.id && styles.planCardActive]}
-                  onPress={() => setSelected(plan.id as any)}
+                  style={styles.planCard}
                 >
                   {plan.badge && (
                     <View style={styles.planBadge}>
                       <Text style={styles.planBadgeText}>{plan.badge}</Text>
                     </View>
                   )}
-                  <Text style={[styles.planLabel, selected === plan.id && styles.planLabelActive]}>{plan.label}</Text>
-                  <Text style={[styles.planPrice, selected === plan.id && styles.planPriceActive]}>₹{plan.price}</Text>
-                  <Text style={[styles.planPeriod, selected === plan.id && styles.planPeriodActive]}>per {plan.period}</Text>
+                  <Text style={styles.planLabel}>{plan.label}</Text>
+                  <Text style={styles.planPrice}>₹{plan.price}</Text>
+                  <Text style={styles.planPeriod}>per {plan.period}</Text>
                   {plan.saving && (
                     <Text style={styles.planSaving}>{plan.saving}</Text>
                   )}
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
 
             <View style={styles.ctaSection}>
               <TouchableOpacity
-                style={[styles.subscribeBtn, loading && { opacity: 0.7 }]}
-                onPress={subscribe}
-                disabled={loading}
+                style={styles.subscribeBtn}
+                onPress={requestAccess}
               >
-                <Text style={styles.subscribeBtnText}>{loading ? 'Processing…' : `Subscribe for ₹${selectedPlan.price}/${selectedPlan.period}`}</Text>
+                <Text style={styles.subscribeBtnText}>Notify Me</Text>
               </TouchableOpacity>
-              <Text style={styles.ctaSub}>Cancel anytime • Secure payment</Text>
+              <Text style={styles.ctaSub}>Membership payments are not available in this app version.</Text>
             </View>
           </>
         )}
@@ -166,15 +154,11 @@ const styles = StyleSheet.create({
   perkDesc: { fontSize: FontSize.xs, color: Colors.foregroundMuted, marginTop: 2 },
   planRow: { flexDirection: 'row', gap: 12 },
   planCard: { flex: 1, backgroundColor: Colors.surfaceCard, borderRadius: BorderRadius.xl, padding: 16, alignItems: 'center', borderWidth: 2, borderColor: Colors.border, gap: 4, position: 'relative' },
-  planCardActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryMuted },
   planBadge: { position: 'absolute', top: -10, backgroundColor: Colors.secondary, paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.full },
   planBadgeText: { fontSize: 10, fontWeight: '900', color: Colors.foregroundHeading },
   planLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.foregroundBody },
-  planLabelActive: { color: Colors.primary },
   planPrice: { fontSize: FontSize.xxl, fontWeight: '900', color: Colors.foregroundHeading },
-  planPriceActive: { color: Colors.primary },
   planPeriod: { fontSize: FontSize.xs, color: Colors.foregroundMuted },
-  planPeriodActive: { color: Colors.primary },
   planSaving: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.statusSuccess, backgroundColor: Colors.statusSuccessSurface, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   ctaSection: { gap: 10, alignItems: 'center' },
   subscribeBtn: { width: '100%', backgroundColor: Colors.primary, borderRadius: BorderRadius.xl, paddingVertical: 16, alignItems: 'center', ...Shadow.lg },

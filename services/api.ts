@@ -138,8 +138,8 @@ export const authApi = {
 // ─── Products ─────────────────────────────────────────────────────────────────
 
 export const productsApi = {
-  list: (params?: { category?: string; page?: number; limit?: number; search?: string; q?: string }) => {
-    const query = { ...params };
+  list: (params?: { category?: string; page?: number; limit?: number; search?: string; q?: string; status?: string; farmerId?: string }) => {
+    const query = { status: 'active', ...params };
     if (query.search && !query.q) {
       query.q = query.search;
     }
@@ -161,6 +161,9 @@ export const farmersApi = {
   list: async (params?: { page?: number; limit?: number; q?: string; place?: string; district?: string; state?: string; sort?: string }) => {
     const qs = compactQuery(params as any);
     const res = await request<{ success: boolean; message?: string; data?: any }>(`/api/v1/farmers${qs ? `?${qs}` : ''}`);
+    if (res.data?.source === 'fallback') {
+      throw new ApiError(503, 'Live farmer data is temporarily unavailable.');
+    }
     const items = listFrom<FarmerProfile>(res.data, ['items', 'farmers', 'data']).map(withEntityId);
     return {
       ...res,
@@ -183,14 +186,58 @@ export const farmersApi = {
   byProfileId: (profileId: string) =>
     request<{ success: boolean; data: { farmerId: string } }>(`/api/v1/farmers?profileId=${profileId}`),
 
-  dashboard: () =>
-    request<{ success: boolean; data: any }>('/api/v1/farmers/dashboard'),
+  dashboard: async (profileId: string) => {
+    const farmerRes = await request<{ success: boolean; data?: { farmerId?: string; farmer?: FarmerProfile } }>(
+      `/api/v1/farmers?profileId=${encodeURIComponent(profileId)}`
+    );
+    const farmerId = farmerRes.data?.farmerId ?? farmerRes.data?.farmer?._id ?? farmerRes.data?.farmer?.id;
+
+    if (!farmerId) {
+      throw new ApiError(404, 'No farmer profile is linked to this account yet.');
+    }
+
+    const [productsRes, ordersRes, harvestsRes] = await Promise.all([
+      productsApi.list({ farmerId, limit: 100 }),
+      request<{ success: boolean; data?: any }>(
+        `/api/v1/farmers/dashboard/orders?farmerId=${encodeURIComponent(farmerId)}&limit=50`
+      ),
+      harvestsApi.list({ farmerId, status: 'open' }),
+    ]);
+
+    const products = productsRes.data?.products ?? [];
+    const orders = listFrom<any>(ordersRes.data, ['orders', 'items', 'data']);
+    const harvests = listFrom<any>(harvestsRes.data, ['items', 'harvests', 'data']);
+    const totalRevenue = orders
+      .filter((order) => order.status !== 'cancelled')
+      .reduce((sum, order) => sum + safeNumber(order.total), 0);
+    const pendingOrders = orders.filter((order) =>
+      !['delivered', 'cancelled'].includes(String(order.status ?? '').toLowerCase())
+    ).length;
+    const avgRating = products.length
+      ? products.reduce((sum, product) => sum + safeNumber(product.rating), 0) / products.length
+      : 0;
+
+    return {
+      success: true,
+      data: {
+        farmer: farmerRes.data?.farmer,
+        farmerId,
+        totalProducts: products.length,
+        totalOrders: orders.length,
+        totalRevenue,
+        avgRating,
+        pendingOrders,
+        activeHarvests: harvests.length,
+        recentOrders: orders.slice(0, 5),
+      },
+    };
+  },
 };
 
 // ─── Harvests ─────────────────────────────────────────────────────────────────
 
 export const harvestsApi = {
-  list: (params?: { status?: string; page?: number }) => {
+  list: (params?: { status?: string; page?: number; farmerId?: string }) => {
     const qs = compactQuery(params as any);
     return request<HarvestsResponse>(`/api/v1/harvests${qs ? `?${qs}` : ''}`);
   },
@@ -231,12 +278,28 @@ export const ordersApi = {
 // ─── FPOs ─────────────────────────────────────────────────────────────────────
 
 export const fposApi = {
-  list: (params?: { q?: string }) => {
+  list: async (params?: { q?: string }) => {
     const qs = compactQuery(params as any);
-    return request<{ success: boolean; data: { fpos: FPO[]; total: number } }>(`/api/v1/fpos${qs ? `?${qs}` : ''}`);
+    const res = await request<{ success: boolean; data: { fpos: FPO[]; total: number } }>(`/api/v1/fpos${qs ? `?${qs}` : ''}`);
+    const liveFpos = (res.data?.fpos ?? []).filter((fpo) => !isPlaceholderFpo(fpo));
+    return { ...res, data: { ...res.data, fpos: liveFpos, total: liveFpos.length } };
   },
-  detail: (id: string) => request<{ success: boolean; data: FPO }>(`/api/v1/fpos/${id}`),
+  detail: async (id: string) => {
+    const res = await request<{ success: boolean; data: FPO }>(`/api/v1/fpos/${id}`);
+    if (isPlaceholderFpo(res.data)) {
+      throw new ApiError(404, 'No live FPO record is available yet.');
+    }
+    return res;
+  },
 };
+
+function isPlaceholderFpo(fpo: FPO) {
+  return (
+    fpo._id === '1' &&
+    /green valley/i.test(fpo.name ?? '') &&
+    /unsplash\.com/i.test(fpo.photo ?? '')
+  );
+}
 
 // ─── Wallet ───────────────────────────────────────────────────────────────────
 
